@@ -1,0 +1,4 @@
+{
+	"dataRoot" : "./core",
+        "certPath" : "../webInterface/useCert"
+}
