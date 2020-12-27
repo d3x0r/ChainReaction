@@ -38,8 +38,8 @@ var GuestName = localStorage.getItem( "guestName" );
 
 var gameBoard = document.getElementById( "board" );
 var gameCtx = gameBoard.getContext("2d");
-var gameBoard_width = document.getElementById( "board_size_x" );
-var gameBoard_height = document.getElementById( "board_size_y" );
+//var gameBoard_width = document.getElementById( "board_size_x" );
+//var gameBoard_height = document.getElementById( "board_size_y" );
 var alertFrame = document.getElementById( "alert");
 var alertFrameText = document.getElementById( "alertContent");
 alertFrameText.textContent = "Test Message goes Here....";
@@ -101,8 +101,11 @@ function initGameBoardForm() {
 		show() {
 			this.divFrame.style.display = "unset";
 		},
+		raise() {
+			popupTracker.raise( popup);
+		},
 	}
-
+	popupTracker.addPopup(popup);
 	return popup;
 }
 var gameBoardForm = initGameBoardForm();
@@ -308,7 +311,6 @@ function handleService (a,b,c) {
 
 	}else {
 		console.log( "Request of chainreact instead of connectTo:", a, b, c );
-
 	}
 }
 
@@ -392,6 +394,12 @@ function handleService (a,b,c) {
 					if( l.currentPlayer >= l.players.length )
 						l.currentPlayer = 0;
 				}while( !l.players[l.currentPlayer].active );
+				if( l.players[l.currentPlayer].autoMove )
+				{
+					console.log( "automoving" );
+					pickAiMove_generation_one();
+					return;
+				}
 	}
 
 
@@ -540,6 +548,7 @@ function initLoginForm() {
 
 var loginForm = initLoginForm()
 
+
 //---------------------------------------------------------------------------
 
 function initGameStatusForm() {
@@ -617,10 +626,17 @@ function initGameStatusForm() {
 
 	var quitGame =  document.getElementById( "quitGame");
 	quitGame.addEventListener( "click", ()=>{
-		chainReactService.leaveGame();
-		gameBoardForm.hide();
-		gameStatusForm.hide();
-		foyerForm.show();
+		if( chainReactService ) {
+			chainReactService.leaveGame();
+			gameBoardForm.hide();
+			gameStatusForm.hide();
+			foyerForm.show();
+		} else {
+			gameBoardForm.hide();
+			gameStatusForm.hide();
+			foyerForm.show();
+			
+		}
 	})
 
 	var resignGame =  document.getElementById( "resignGame");
@@ -677,6 +693,8 @@ function initFoyerForm() {
 	}
 	Object.assign( popup, {
 		loadGames() {
+			if( chainReactService )
+
 			chainReactService.foyer( (games)=>{
 				this.clearGames();
 				this.addGames( games );
@@ -709,8 +727,10 @@ function initFoyerForm() {
 				var button = document.createElement( "button");
 				button.textContent = "Join";
 				button.addEventListener( "click", (evt)=>{
-					chainReactService.joinGame( game_.id );
+					if( chainReactService )
+						chainReactService.joinGame( game_.id );
 				})
+				if( chainReactService )
 				cell.appendChild( button );
 			})
 		},
@@ -756,6 +776,8 @@ function initFoyerForm() {
 			foyerForm.hide();
 			for( var p = 0; p < Number(myGamePlayers.textContent); p++ ){
 				makePlayer();
+				if( !chainReactService && l.players.length > 1  )
+					l.players[l.players.length-1].autoMove = true;
 			}
 			l.players[0].active = true;
 
@@ -851,6 +873,8 @@ function makePlayer() {
 			 x :0, y:0, // cursor position
 			 color:l.players.length,
 			 active:false,
+			 autoMove :false,
+
 			 went:false,
 			 wins:0,
 			 count:0, // maybe check this for win/loss?
@@ -1025,9 +1049,14 @@ gameBoard.addEventListener( "click", (evt)=>{
 	if( x >= l.board[y].length || y >= l.board.length )
 		return;
 
-	if( l.board[y][x].player < 0 || l.board[y][x].player === l.currentPlayer)
-		chainReactService.putPiece( x, y, clientX - l.cellx[x], clientY - l.celly[y] );
-	else {
+	if( l.board[y][x].player < 0 || l.board[y][x].player === l.currentPlayer) {
+		if( chainReactService )
+			chainReactService.putPiece( x, y, clientX - l.cellx[x], clientY - l.celly[y] );
+		else {
+			putPiece( x, y, clientX - l.cellx[x], clientY - l.celly[y] );
+			
+		}	
+	} else {
 		alertForm.caption = "Illegal Move";
 		alertForm.show();
 	}
@@ -1482,9 +1511,13 @@ async function pickAiMove_generation_one() {
 
 	var m = thing%l.cols;
 	var n = ( thing / l.cols ) | 0;
-	if( l.board[n][m].player < 0 || l.board[n][m].player == l.currentPlayer )
-		chainReactService.putPiece( m, n, 0, 0 );
-	else {
+	if( l.board[n][m].player < 0 || l.board[n][m].player == l.currentPlayer ) {
+		if( chainReactService )
+			chainReactService.putPiece( m, n, 0, 0 );
+		else {
+			putPiece( m,n,0,0 );
+		}
+	} else {
 		console.log( "MOve is illegal; rechoosing" );
 		pickAiMove_generation_zero();
 	}
@@ -1500,7 +1533,10 @@ function pickAiMove_generation_zero() {
 	n = ( l.rows * n / 65535 ) | 0;
 	m = ( l.cols * m / 65535 ) | 0;
 	if( l.board[n][m].player < 0 || l.board[n][m].player == l.currentPlayer )
-		chainReactService.putPiece( m, n, 0, 0 );
+		if( chainReactService )
+			chainReactService.putPiece( m, n, 0, 0 );
+		else
+			putPiece( m, n, 0, 0 );
 	else
 		return pickAiMove_generation_zero();
 
